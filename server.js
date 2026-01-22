@@ -32,6 +32,7 @@ app.listen(port, () => {
 app.get('/vehicles', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
+
         const [rows] = await connection.execute(`
             SELECT v.vehicle_id,
                    v.brand,
@@ -40,12 +41,15 @@ app.get('/vehicles', async (req, res) => {
                    v.registration_date,
                    v.emission_rating,
                    v.vehicle_image_url,
+                   v.energy_type_id,
                    e.energy_name,
                    e.energy_image_url
             FROM vehicle v
             JOIN energy_type e
               ON v.energy_type_id = e.energy_type_id
         `);
+
+        await connection.end();
         res.json(rows);
     } catch (err) {
         console.error(err);
@@ -53,10 +57,11 @@ app.get('/vehicles', async (req, res) => {
     }
 });
 
-// Get EV vehicles only
+// Get EV vehicles
 app.get('/vehicles/ev', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
+
         const [rows] = await connection.execute(`
             SELECT v.vehicle_id,
                    v.brand,
@@ -65,6 +70,7 @@ app.get('/vehicles/ev', async (req, res) => {
                    v.registration_date,
                    v.emission_rating,
                    v.vehicle_image_url,
+                   v.energy_type_id,
                    e.energy_name,
                    e.energy_image_url
             FROM vehicle v
@@ -72,6 +78,8 @@ app.get('/vehicles/ev', async (req, res) => {
               ON v.energy_type_id = e.energy_type_id
             WHERE e.energy_name = 'EV'
         `);
+
+        await connection.end();
         res.json(rows);
     } catch (err) {
         console.error(err);
@@ -79,10 +87,11 @@ app.get('/vehicles/ev', async (req, res) => {
     }
 });
 
-// Get Hybrid vehicles only
+// Get Hybrid vehicles
 app.get('/vehicles/hybrid', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
+
         const [rows] = await connection.execute(`
             SELECT v.vehicle_id,
                    v.brand,
@@ -91,6 +100,7 @@ app.get('/vehicles/hybrid', async (req, res) => {
                    v.registration_date,
                    v.emission_rating,
                    v.vehicle_image_url,
+                   v.energy_type_id,
                    e.energy_name,
                    e.energy_image_url
             FROM vehicle v
@@ -98,6 +108,8 @@ app.get('/vehicles/hybrid', async (req, res) => {
               ON v.energy_type_id = e.energy_type_id
             WHERE e.energy_name = 'Hybrid'
         `);
+
+        await connection.end();
         res.json(rows);
     } catch (err) {
         console.error(err);
@@ -123,6 +135,7 @@ app.post('/addvehicle', async (req, res) => {
 
     try {
         const connection = await mysql.createConnection(dbConfig);
+
         await connection.execute(
             `INSERT INTO vehicle
             (brand, model_name, vehicle_type, registration_date,
@@ -139,6 +152,7 @@ app.post('/addvehicle', async (req, res) => {
             ]
         );
 
+        await connection.end();
         res.status(201).json({ message: 'Vehicle added successfully' });
     } catch (err) {
         console.error(err);
@@ -148,7 +162,7 @@ app.post('/addvehicle', async (req, res) => {
 
 
 // ==============================
-// UPDATE
+// UPDATE (FIXED)
 // ==============================
 
 app.put('/updatevehicle/:id', async (req, res) => {
@@ -165,12 +179,13 @@ app.put('/updatevehicle/:id', async (req, res) => {
 
     try {
         const connection = await mysql.createConnection(dbConfig);
+
         await connection.execute(
             `UPDATE vehicle
              SET brand=?,
                  model_name=?,
                  vehicle_type=?,
-                 registration_date=?,
+                 registration_date=COALESCE(?, registration_date),
                  emission_rating=?,
                  energy_type_id=?,
                  vehicle_image_url=?
@@ -179,7 +194,7 @@ app.put('/updatevehicle/:id', async (req, res) => {
                 brand,
                 model_name,
                 vehicle_type,
-                registration_date,
+                registration_date || null,
                 emission_rating,
                 energy_type_id,
                 vehicle_image_url,
@@ -187,6 +202,7 @@ app.put('/updatevehicle/:id', async (req, res) => {
             ]
         );
 
+        await connection.end();
         res.json({ message: 'Vehicle updated successfully' });
     } catch (err) {
         console.error(err);
@@ -204,11 +220,13 @@ app.delete('/deletevehicle/:id', async (req, res) => {
 
     try {
         const connection = await mysql.createConnection(dbConfig);
+
         await connection.execute(
             'DELETE FROM vehicle WHERE vehicle_id = ?',
             [id]
         );
 
+        await connection.end();
         res.json({ message: 'Vehicle deleted successfully' });
     } catch (err) {
         console.error(err);
