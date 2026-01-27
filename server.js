@@ -14,27 +14,23 @@ const dbConfig = {
     port: process.env.DB_PORT
 };
 
-// initialise Express app
 const app = express();
 app.use(express.json());
 
-// start server
 app.listen(port, () => {
     console.log('Server running on port', port);
 });
-
 
 // ==============================
 // GET ROUTES
 // ==============================
 
-// Get ALL vehicles
 app.get('/vehicles', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
-
         const [rows] = await connection.execute(`
             SELECT v.vehicle_id,
+                   v.license_plate,
                    v.brand,
                    v.model_name,
                    v.vehicle_type,
@@ -45,78 +41,46 @@ app.get('/vehicles', async (req, res) => {
                    e.energy_name,
                    e.energy_image_url
             FROM vehicle v
-            JOIN energy_type e
-              ON v.energy_type_id = e.energy_type_id
+            JOIN energy_type e ON v.energy_type_id = e.energy_type_id
         `);
-
         await connection.end();
         res.json(rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error - could not get vehicles' });
+    } catch {
+        res.status(500).json({ message: 'Error fetching vehicles' });
     }
 });
 
-// Get EV vehicles
 app.get('/vehicles/ev', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
-
         const [rows] = await connection.execute(`
-            SELECT v.vehicle_id,
-                   v.brand,
-                   v.model_name,
-                   v.vehicle_type,
-                   v.registration_date,
-                   v.emission_rating,
-                   v.vehicle_image_url,
-                   v.energy_type_id,
-                   e.energy_name,
-                   e.energy_image_url
+            SELECT v.*, e.energy_name, e.energy_image_url
             FROM vehicle v
-            JOIN energy_type e
-              ON v.energy_type_id = e.energy_type_id
-            WHERE e.energy_name = 'EV'
+            JOIN energy_type e ON v.energy_type_id = e.energy_type_id
+            WHERE e.energy_name='EV'
         `);
-
         await connection.end();
         res.json(rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error - could not get EV vehicles' });
+    } catch {
+        res.status(500).json({ message: 'Error fetching EVs' });
     }
 });
 
-// Get Hybrid vehicles
 app.get('/vehicles/hybrid', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
-
         const [rows] = await connection.execute(`
-            SELECT v.vehicle_id,
-                   v.brand,
-                   v.model_name,
-                   v.vehicle_type,
-                   v.registration_date,
-                   v.emission_rating,
-                   v.vehicle_image_url,
-                   v.energy_type_id,
-                   e.energy_name,
-                   e.energy_image_url
+            SELECT v.*, e.energy_name, e.energy_image_url
             FROM vehicle v
-            JOIN energy_type e
-              ON v.energy_type_id = e.energy_type_id
-            WHERE e.energy_name = 'Hybrid'
+            JOIN energy_type e ON v.energy_type_id = e.energy_type_id
+            WHERE e.energy_name='Hybrid'
         `);
-
         await connection.end();
         res.json(rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error - could not get Hybrid vehicles' });
+    } catch {
+        res.status(500).json({ message: 'Error fetching hybrids' });
     }
 });
-
 
 // ==============================
 // CREATE
@@ -124,6 +88,7 @@ app.get('/vehicles/hybrid', async (req, res) => {
 
 app.post('/addvehicle', async (req, res) => {
     const {
+        license_plate,
         brand,
         model_name,
         vehicle_type,
@@ -135,13 +100,13 @@ app.post('/addvehicle', async (req, res) => {
 
     try {
         const connection = await mysql.createConnection(dbConfig);
-
         await connection.execute(
             `INSERT INTO vehicle
-            (brand, model_name, vehicle_type, registration_date,
+            (license_plate, brand, model_name, vehicle_type, registration_date,
              emission_rating, energy_type_id, vehicle_image_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
+                license_plate,
                 brand,
                 model_name,
                 vehicle_type,
@@ -151,27 +116,24 @@ app.post('/addvehicle', async (req, res) => {
                 vehicle_image_url
             ]
         );
-
         await connection.end();
-        res.status(201).json({ message: 'Vehicle added successfully' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error - could not add vehicle' });
+        res.status(201).json({ message: 'Vehicle added' });
+    } catch {
+        res.status(500).json({ message: 'Error adding vehicle' });
     }
 });
 
-
 // ==============================
-// UPDATE (FIXED)
+// UPDATE
 // ==============================
 
 app.put('/updatevehicle/:id', async (req, res) => {
     const { id } = req.params;
     const {
+        license_plate,
         brand,
         model_name,
         vehicle_type,
-        registration_date,
         emission_rating,
         energy_type_id,
         vehicle_image_url
@@ -179,57 +141,48 @@ app.put('/updatevehicle/:id', async (req, res) => {
 
     try {
         const connection = await mysql.createConnection(dbConfig);
-
         await connection.execute(
             `UPDATE vehicle
-             SET brand=?,
+             SET license_plate=?,
+                 brand=?,
                  model_name=?,
                  vehicle_type=?,
-                 registration_date=COALESCE(?, registration_date),
                  emission_rating=?,
                  energy_type_id=?,
                  vehicle_image_url=?
              WHERE vehicle_id=?`,
             [
+                license_plate,
                 brand,
                 model_name,
                 vehicle_type,
-                registration_date || null,
                 emission_rating,
                 energy_type_id,
                 vehicle_image_url,
                 id
             ]
         );
-
         await connection.end();
-        res.json({ message: 'Vehicle updated successfully' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error - could not update vehicle' });
+        res.json({ message: 'Vehicle updated' });
+    } catch {
+        res.status(500).json({ message: 'Error updating vehicle' });
     }
 });
-
 
 // ==============================
 // DELETE
 // ==============================
 
 app.delete('/deletevehicle/:id', async (req, res) => {
-    const { id } = req.params;
-
     try {
         const connection = await mysql.createConnection(dbConfig);
-
         await connection.execute(
-            'DELETE FROM vehicle WHERE vehicle_id = ?',
-            [id]
+            'DELETE FROM vehicle WHERE vehicle_id=?',
+            [req.params.id]
         );
-
         await connection.end();
-        res.json({ message: 'Vehicle deleted successfully' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error - could not delete vehicle' });
+        res.json({ message: 'Vehicle deleted' });
+    } catch {
+        res.status(500).json({ message: 'Error deleting vehicle' });
     }
 });
